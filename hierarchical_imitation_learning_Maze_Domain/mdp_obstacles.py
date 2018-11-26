@@ -14,7 +14,7 @@ and policy_iteration algorithms."""
 
 from utils import *
 import numpy as np
-import Tkinter as tk
+# import Tkinter as tk
 from time import sleep
 
 

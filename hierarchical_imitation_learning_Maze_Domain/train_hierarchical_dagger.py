@@ -30,7 +30,7 @@ import six
 from PIL import Image
 from mdp_obstacles import MazeMDP, value_iteration, best_policy
 
-SUMMARY_NAME = 'hda_200WarmStart_1pass_1000maps_randomDoor_run3'
+SUMMARY_NAME = 'hda_200WarmStart_1pass_1000roads_run4'
 # General parameters
 NUM_EPISODES = 1000
 
@@ -47,8 +47,10 @@ EPSILON_DECAY = 1e-4     # linear decay in epsilon per episode
 GAMMA = 0.99             # discount factor
 
 ACTIONS = ["movenorth 1", "movesouth 1", "movewest 1", "moveeast 1"]
-MACRO_ACTIONS = ['N', 'S', 'W', 'E', 'Stay']
-OUTPUT_MACRO_DIM = 5
+# MACRO_ACTIONS = ['N', 'S', 'W', 'E', 'Stay']
+# OUTPUT_MACRO_DIM = 5
+MACRO_ACTIONS = ['W', 'E', 'Stay']
+OUTPUT_MACRO_DIM = 3
 
 # NN parameters
 TRAIN_HIST_SIZE = 100000
@@ -153,7 +155,7 @@ class MetaNN:
 		self._selected_replay_data = [self.replay_hist[i] for i in self._samples]
 		self._train_x = np.reshape([self._selected_replay_data[i][0] for i in xrange(BATCH_SIZE)],
 									(BATCH_SIZE,) + self.input_shape)
-		self._train_y = np.reshape([self._selected_replay_data[i][1] for i in xrange(BATCH_SIZE)],(BATCH_SIZE,5))
+		self._train_y = np.reshape([self._selected_replay_data[i][1] for i in xrange(BATCH_SIZE)],(BATCH_SIZE,3))
 
 		self.model.fit(self._train_x, self._train_y, batch_size = 32, epochs = self.num_pass, callbacks = [self._history])
 		self.count = 0 # reset the count clock
@@ -395,17 +397,26 @@ class Agent(Visualizable):
 		self.expert_macro_feedback = {}
 		for item in self.sa_trajectory:
 			i,j = item[0]
+                        """
 			if i % 4 == 0 or j %4 == 0:
 				room= (-1,-1) # hall way
 			else:
 				room = (i /4, j /4)
+                        """
+                        if j in [8, 10, 12, 14]:
+                            room = -1
+                        else:
+                            if j < 8:
+                                room = 1
+                            else:
+                                room = (j - 5) / 2
 			self.room_trajectory.append(room)
 		
 		## attribute the hallway back to the preceding room, make sure it is correct
 		change_point = []
 		change_point.append(0) ## the first location
 		for index in range(len(self.room_trajectory)):
-			if self.room_trajectory[index] == (-1,-1):
+			if self.room_trajectory[index] == -1:
 				assert index >0
 				self.room_trajectory[index] = self.room_trajectory[index-1] 
 				change_point.append(index+1) # the next index should be the terminal point of an option, and should be an intermediary location
@@ -418,21 +429,21 @@ class Agent(Visualizable):
 			begin_index = change_point[index]
 			end_index = change_point[index+1]
 			if end_index < len(self.room_trajectory):
-				room_shift = (self.room_trajectory[end_index][0] - self.room_trajectory[begin_index][0], self.room_trajectory[end_index][1] - self.room_trajectory[begin_index][1])
+				room_shift = self.room_trajectory[end_index] - self.room_trajectory[begin_index]
 				#print "room shift value is ", room_shift
-				assert room_shift != (0,0)
-				if room_shift == (0,-1):
+				assert room_shift != 0
+				if room_shift == -1:
 					option = 0
-				elif room_shift == (0,1):
+				elif room_shift == 1:
 					option = 1
-				elif room_shift == (-1,0):
-					option = 2
-				elif room_shift == (1,0):
-					option = 3
+				# elif room_shift == (-1,0):
+				# 	option = 2
+				# elif room_shift == (1,0):
+				# 	option = 3
 				else:
-					option = 4
+					option = 2
 			else:
-				option = 4
+				option = 2
 
 
 			for i in range(begin_index, end_index):
@@ -453,12 +464,14 @@ class Agent(Visualizable):
 		self._macro_action_pred = self.metacontroller.predict(state)[0]
 		self._macro_a = self.sample(self._macro_action_pred)
 
+	#TODO: Update this and understand what is decision point??
 	def get_expert_feedback(self, agent_host, macro_action, expert_policy, decision_point):
 		agent_loc = agent_host.agent_loc
 		#print "agent loc:", agent_loc
 		#print "decision point:", decision_point
 		if agent_host._world[agent_loc[0], agent_loc[1]] == 'x':
 			possible_actions = [(0,-1), (0,1), (-1,0), (1,0)]
+                        # possible_actions = [(-1, 0), (1, 0)]
 			best_direction = (0,0)
 			max_value = -1.0
 			for action in range(4):
@@ -474,15 +487,18 @@ class Agent(Visualizable):
 		else:
 			expert_a = expert_policy[agent_loc]
 			if macro_action == 0:
-				if agent_loc[1] % 4 == 3 and agent_loc[1] < 15 and agent_loc[1] < decision_point[1] and (agent_loc[0] / 4) == (decision_point[0] /4):
+				if agent_loc[1] % 2 == 1 and agent_loc[1] > 1 and agent_loc[1] > decision_point[1] and (agent_loc[0] / 4) == (decision_point[0] /4):
 					expert_t = 1
 				else:
 					expert_t =  0
 			elif macro_action == 1:
-				if agent_loc[1] % 4 == 1 and agent_loc[1] > 1 and agent_loc[1] > decision_point[1] and (agent_loc[0] / 4) == (decision_point[0] /4):
+				if agent_loc[1] % 2 == 1 and agent_loc[1] < 15 and agent_loc[1] < decision_point[1] and (agent_loc[0] / 4) == (decision_point[0] /4):
 					expert_t= 1
 				else:
 					expert_t= 0
+                        elif macro_action == 2:
+                            expert_t = 0
+                        """
 			elif macro_action == 2:
 				if agent_loc[0] % 4 == 3 and agent_loc[0] < 15 and agent_loc[0] < decision_point[0] and (agent_loc[1] / 4) == (decision_point[1] /4):
 					expert_t= 1
@@ -493,9 +509,10 @@ class Agent(Visualizable):
 					expert_t= 1
 				else:
 					expert_t= 0
-			elif macro_action == 4:
+                        
+			elif macro_action == 2:
 				expert_t= 0
-
+                        """
 			if expert_t == 0 and macro_action != self.identify_optimal_macro_action(agent_host, agent_loc):
 				print "not optimal meta action chosen"
 				expert_a = 99
@@ -504,7 +521,7 @@ class Agent(Visualizable):
 
 		return expert_a, expert_t
 
-
+	#TODO: Update this?
 	def identify_optimal_macro_action(self, agent_host, starting_loc):
 		if agent_host._world[starting_loc[0], starting_loc[1]] == 'x':
 			print "recursive call to determine best meta action"
@@ -524,23 +541,32 @@ class Agent(Visualizable):
 		else:
 			state = [starting_loc[0], starting_loc[1]]
 			meta_action_terminate = False
-
+                        """
 			if starting_loc[0] % 4==0 or starting_loc[1]%4 == 0:
 				starting_room = (-1,-1)
 			else:
 				starting_room = (starting_loc[0] /4, starting_loc[1] /4)
-			
+			"""
+                        if starting_loc[1] in [8, 10, 12, 14]:
+                            starting_room = -1
+                        else:
+                            if starting_loc[1] < 8:
+                                starting_room = 1
+                            else:
+                                starting_room = (starting_loc[1] - 5) / 2
+
 			#print "starting room:", starting_room
-			goal_room = (agent_host.goal_loc[0] / 4, agent_host.goal_loc[1]/4)
+			# goal_room = (agent_host.goal_loc[0] / 4, agent_host.goal_loc[1]/4)
+                        goal_room = (agent_host.goal_loc[1] - 5) / 2
 			if starting_room == goal_room:
-				expert_macro_a = 4
+				expert_macro_a = 2
 			else:
-				if starting_room == (-1,-1):
-					room_shift = self.policy[(state[0], state[1])]
+				if starting_room == -1:
+					room_shift = self.policy[(state[0], state[1])][0]
 					#print "action direction from hallway:", room_shift
 					#time.sleep(5)
 				else:
-					#print "here"
+					# print "here"
 					while not meta_action_terminate:
 						action = self.expert[(state[0], state[1])]
 						action_direction = self.policy[(state[0], state[1])]
@@ -550,29 +576,36 @@ class Agent(Visualizable):
 						state = [old_state_x + action_direction[0], old_state_y + action_direction[1]]
 
 						## check if meta action should terminate
-						if state[0] % 4==0 or state[1]%4 == 0:
-							current_room = (-1,-1)
+						if state[1] in [8, 10, 12, 14]:
+							current_room = -1
 						else:
-							current_room = (state[0] /4, state[1] /4)
-						if current_room != starting_room and current_room != (-1,-1):
+                                                    if state[1] < 8:
+                                                        current_room = 1
+                                                    else:
+                                                        current_room = (state[1] - 5) / 2
+							# current_room = (state[0] /4, state[1] /4)
+						if current_room != starting_room and current_room != -1:
 							meta_action_terminate = True
 							#print "current room", current_room
 
-					room_shift = (current_room[0] - starting_room[0], current_room[1] - starting_room[1])
-				assert room_shift != (0,0)
-				#print "room shift:", room_shift
-				if room_shift == (0,-1):
+					room_shift = current_room - starting_room
+				# assert room_shift != 0
+				# print "room shift:", room_shift
+				if room_shift == -1:
 					expert_macro_a = 0
-				elif room_shift == (0,1):
+				elif room_shift == 1:
 					expert_macro_a = 1
-				elif room_shift == (-1,0):
-					expert_macro_a = 2
-				elif room_shift == (1,0):
-					expert_macro_a = 3
+                                elif room_shift == 0:
+                                        expert_macro_a = 2
+				# elif room_shift == (-1,0):
+				# 	expert_macro_a = 2
+				# elif room_shift == (1,0):
+				# 	expert_macro_a = 3
 				else:
 					print "something is wrong when identifying optimal macro action"
 			return expert_macro_a
 	
+
 	def learner_choose_option(self, agent_host):
 		world_state = agent_host.state
 		state = np.reshape(world_state, (1,)+self.input_shape)
@@ -592,10 +625,24 @@ class Agent(Visualizable):
 		#else:
 		#	print "train - pick not modified"
 
+        #TODO: Update this.
 	def check_goal_achieve(self, agent_host,option_index,last_location, decision_point):
 		agent_loc = last_location
 		macro_action = option_index
-
+		if macro_action == 0:
+			if agent_loc[1] % 2 == 1 and agent_loc[1] > 1 and agent_loc[1] > decision_point[1] and (agent_loc[0] / 4) == (decision_point[0] /4):
+				expert_t = 1
+			else:
+				expert_t =  0
+		elif macro_action == 1:
+			if agent_loc[1] % 2 == 1 and agent_loc[1] < 15 and agent_loc[1] < decision_point[1] and (agent_loc[0] / 4) == (decision_point[0] /4):
+				expert_t= 1
+			else:
+				expert_t= 0
+                elif macro_action == 2:
+                        expert_t = 0
+        
+                """
 		if macro_action == 0:
 			if agent_loc[1] % 4 == 3 and agent_loc[1] < 15 and agent_loc[1] < decision_point[1] and (agent_loc[0] / 4) == (decision_point[0] /4):
 				expert_t = 1
@@ -618,7 +665,7 @@ class Agent(Visualizable):
 				expert_t= 0
 		elif macro_action == 4:
 			expert_t= 0
-
+                """
 		return expert_t
 
 	def run_train(self, agent_host):
@@ -999,11 +1046,12 @@ def main(macro_action, train_or_test, environment, validation):
 	METACONTROLLER_NAME = 'metacontroller_HDA_'
 
 	agent_host = MazeNavigationEnvironment(MazeNavigationStateBuilder(gray = False),
-									rendering = False, randomized_door=True, stochastic_dynamic = False, map_id=999, setting = environment)
+									rendering = True, randomized_door=False, stochastic_dynamic = False, map_id=99, setting = environment)
 	
 	agent = Agent(mode, environment, direction)
 
-	map_ids_to_use = range(1000,2000)
+	# map_ids_to_use = range(1000,2000)
+        map_ids_to_use = range(100)
 
 	#for i in range(1, 20000):
 	for i in six.moves.range(1,NUM_EPISODES+1):
@@ -1011,7 +1059,7 @@ def main(macro_action, train_or_test, environment, validation):
 		print "--------------------------------------------------------------------"
 		logger.info("\nMission %d of %d:" % ( i, NUM_EPISODES ))
 
-		new_map_id = np.random.choice(range(1000))
+		new_map_id = np.random.choice(range(100))
 		print "Launching map", new_map_id
 
 		agent_host.change_map_and_reset(new_map_id)
@@ -1033,7 +1081,7 @@ def main(macro_action, train_or_test, environment, validation):
 				#agent.train_buffer += 1
 				print
 				print "re-attempt number:", agent.rerun_count
-				new_map_id = np.random.choice(range(1000))
+				new_map_id = np.random.choice(range(100))
 				agent_host.change_map_and_reset(new_map_id)
 
 				final_reward = agent.run_train(agent_host)

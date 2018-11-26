@@ -16,11 +16,13 @@ import numpy as np
 from collections import Sequence
 from time import sleep
 from numpy import log
-import Tkinter as tk
+# import Tkinter as tk
 import six
 
+# change name here or dont
 ENV = 'maze'
 
+# env actions like this are fine. just need to modify meta actions
 ENV_GOAL_REWARD = 100
 ENV_ACTIONS = ["movenorth 1", "movesouth 1", "movewest 1", "moveeast 1"]
 HORIZON = 100
@@ -30,7 +32,9 @@ ACT = -1
 OBSTACLE = -100
 GOAL = 100
 
-HALLWAY = [(4,8), (12,8), (8,4), (8,12)]
+# TODO: Change these to idk lanes?
+# HALLWAY = [(4,8), (12,8), (8,4), (8,12)]
+HALLWAY = [8, 10, 12, 14]
 
 def parse_clients_args(args_clients):
 	"""
@@ -126,14 +130,14 @@ class MazeNavigationEnvironment(object):
 		self._map_id = map_id
 		self._horizon = horizon
 		
-
+                # TODO: Change where the maps are loaded from to another npy for roads
 		# Load the world maps into a dictionary
 		if self._setting == 'maze':
-			self._maps_dict = np.load('maps_16rooms_landmarks.npy').item()
-
+			# self._maps_dict = np.load('maps_16rooms_landmarks.npy').item()
+                        self._maps_dict = np.load('road_maps.npy').item()
 
 		self.stochastic_dynamic = stochastic_dynamic
-		self.randomized_door = randomized_door
+		self.randomized_door = False #randomized_door
 
 		assert self._map_id is not None, "map_id cannot be None"
 		if self._map_id is not None:
@@ -142,12 +146,25 @@ class MazeNavigationEnvironment(object):
 
 		self._world = np.chararray((ENV_BOARD_SHAPE[0], ENV_BOARD_SHAPE[1]))
 		self._world[:] = 'o'
+                # TODO: Change so its only verticals for roads
+                """
 		for row in range(5):
 			for col in range(ENV_BOARD_SHAPE[0]):
 				self._world[col, row*4] = 'x'
 		for col in range(5):
 			for row in range(ENV_BOARD_SHAPE[1]):
 				self._world[col*4, row] = 'x'
+                """
+                for i in range(ENV_BOARD_SHAPE[0]):
+                    self._world[i, 0] = 'x'
+                    self._world[i, ENV_BOARD_SHAPE[0]-1] = 'x'
+                for j in range(ENV_BOARD_SHAPE[0]):
+                    if j % 2 == 0:
+                        self._world[0, j] = 'x'
+                        self._world[ENV_BOARD_SHAPE[0]-1, j] = 'x'
+                    if j % 8 == 0:
+                        self._world[1,j] = 'x'
+                        self._world[ENV_BOARD_SHAPE[0]-2,j] = 'x'
 		self._agent_loc = self._landmark[0]
 		self._goal_loc = self._landmark[1]
 		self._walls_for_door = self._landmark[2]
@@ -172,10 +189,13 @@ class MazeNavigationEnvironment(object):
 
 			for door in random_doors_open:
 				self._world[door[0], door[1]] = 'o'
+		# TODO: This should correlate to locations of car!
 		else:		
 			for door in self._walls_for_door:
-				self._world[door[0], door[1]] = 'o'
-		
+				# self._world[door[0], door[1]] = 'o'
+                                self._world[door[0], door[1]] = 'x'
+
+		# TODO: Change initialization to only be at the bottom of the map
 		## Initialize the agent location
 		self._agent_loc = self._randomize_initial_position()		
 
@@ -308,8 +328,9 @@ class MazeNavigationEnvironment(object):
 	def in_goo(self):
 		return self._world[self._agent_loc[0], self._agent_loc[1]] == 'w'
 
-
+        # TODO: Change how to identify lane??
 	def identify_location_room(self, loc):
+                """
 		if loc[0] < 8 and loc[1] < 8:
 			return 1
 		elif loc[0] > 8 and loc[1] < 8:
@@ -322,8 +343,25 @@ class MazeNavigationEnvironment(object):
 			return 0
 		else:
 			return -1 # basically invalid
+                """
+                if loc[1] < 8:
+                    return 1
+                elif loc[1] == 9:
+                    return 2
+                elif loc[1] == 11:
+                    return 3
+                elif loc[1] == 13:
+                    return 4
+                elif loc[1] == 15:
+                    return 5
+                elif loc[1] in HALLWAY:
+                    return 0
+                else:
+                    return -1
 
+        # TODO: Change how to identify lane??
 	def identify_agent_room(self):
+                """
 		if self._agent_loc[0] < 8 and self._agent_loc[1] < 8:
 			return 1
 		elif self._agent_loc[0] > 8 and self._agent_loc[1] < 8:
@@ -336,9 +374,26 @@ class MazeNavigationEnvironment(object):
 			return 0
 		else:
 			return -1 # basically invalid
+                """
+                if self._agent_loc[1] < 8:
+                    return 1
+                elif self._agent_loc[1] == 9:
+                    return 2
+                elif self._agent_loc[1] == 11:
+                    return 3
+                elif self._agent_loc[1] == 13:
+                    return 4
+                elif self._agent_loc[1] == 15:
+                    return 5
+                elif self._agent_loc[1] in HALLWAY:
+                    return 0
+                else:
+                    return -1
 
+        # TODO: Change how to identify lane??
 	def identify_goal_room(self):
 		(np.where(self._world == 'g')[0][0], np.where(self._world == 'g')[1][0])
+                """
 		if self._goal_loc[0] < 8 and self._goal_loc[1] < 8:
 			return 1
 		elif self._goal_loc[0] > 8 and self._goal_loc[1] < 8:
@@ -351,8 +406,23 @@ class MazeNavigationEnvironment(object):
 			return 0 # this should never happen
 		else:
 			return -1 # basically invalid
+                """
+                if self._goal_loc[1] < 8:
+                    return 1
+                elif self._goal_loc[1] == 9:
+                    return 2
+                elif self._goal_loc[1] == 11:
+                    return 3
+                elif self._goal_loc[1] == 13:
+                    return 4
+                elif self._goal_loc[1] == 15:
+                    return 5 
+                elif self._goal_loc[1] in HALLWAY:
+                    return 0
+                else:
+                    return -1
 
-
+        # TODO: Change this to be bottom of four lanes only!
 	def _identify_starting_position(self, world_map):
 		pos = (1000, 1)
 		for i in range(1,7):
@@ -360,7 +430,7 @@ class MazeNavigationEnvironment(object):
 				pos = (i,1)
 		return [int(pos[0]), int(pos[1])]
 
-
+	# TODO: Change this to be bottom of four lanes only?
 	def _randomize_initial_position(self):
 
 		i = np.random.choice(range(len(self._valid_start)))
@@ -411,12 +481,26 @@ class MazeNavigationEnvironment(object):
 
 		self._world = np.chararray((ENV_BOARD_SHAPE[0], ENV_BOARD_SHAPE[1]))
 		self._world[:] = 'o'
+		# TODO: Change this to be the walls for the roads only
+                """
 		for row in range(5):
 			for col in range(ENV_BOARD_SHAPE[0]):
 				self._world[col, row*4] = 'x'
 		for col in range(5):
 			for row in range(ENV_BOARD_SHAPE[1]):
 				self._world[col*4, row] = 'x'
+                """
+                for i in range(ENV_BOARD_SHAPE[0]):
+                    self._world[i, 0] = 'x'
+                    self._world[i, ENV_BOARD_SHAPE[0]-1] = 'x'
+                for j in range(ENV_BOARD_SHAPE[0]):
+                    if j % 2 == 0:
+                        self._world[0, j] = 'x'
+                        self._world[ENV_BOARD_SHAPE[0]-1, j] = 'x'
+                    if j % 8 == 0:
+                        self._world[1,j] = 'x'
+                        self._world[ENV_BOARD_SHAPE[0]-2,j] = 'x'
+
 		self._agent_loc = self._landmark[0]
 		self._goal_loc = self._landmark[1]
 		self._walls_for_door = self._landmark[2]
@@ -441,10 +525,13 @@ class MazeNavigationEnvironment(object):
 
 			for door in random_doors_open:
 				self._world[door[0], door[1]] = 'o'
+		# TODO: Again change this to initialize car obstacles
 		else:		
 			for door in self._walls_for_door:
-				self._world[door[0], door[1]] = 'o'
-		
+				# self._world[door[0], door[1]] = 'o'
+	                        self._world[door[0], door[1]] = 'x'
+
+	
 		## Initialize the agent location
 		self._agent_loc = self._randomize_initial_position()		
 
@@ -470,13 +557,19 @@ class MazeNavigationEnvironment(object):
 		# wait for mission to begin
 		return self.state
 
+	# TODO: Make this only bottom 4 start positions
 	def get_valid_start(self):
 		valid = []
+                """
 		for i in range(0,16):
 			for j in range(0,16):
 				if self._world[i,j] == 'o':
 					valid.append((i,j))
-
+                """
+                for i in range(4):
+                    lane_val = 9 + 2 * i
+                    if self._world[ENV_BOARD_SHAPE[0]-1, lane_val] == 'o':
+                        valid.append((ENV_BOARD_SHAPE[0]-1, lane_val))
 		self._valid_start = valid
 
 	def _update(self, action):
@@ -497,7 +590,10 @@ class MazeNavigationEnvironment(object):
 				new_loc = (old_loc[0]+1, old_loc[1])
 			else:
 				print "Illegal action"
-			if self._world[old_loc[0], old_loc[1]] != 'x':
+			if new_loc[0]<0 or new_loc[0] > 16 or new_loc[1]<0 or new_loc[1] >16 and self._world[old_loc[0], old_loc[1]] != 'x':
+				self._agent_loc[0] = old_loc[0]
+				self._agent_loc[1] = old_loc[1]					
+			elif self._world[old_loc[0], old_loc[1]] != 'x':
 				self._agent_loc[0] = new_loc[0]
 				self._agent_loc[1] = new_loc[1]
 			else:
@@ -533,14 +629,14 @@ class MazeNavigationEnvironment(object):
 			#self._agent_loc[1] = self._agent_loc[1] + directions[action_sample][1]
 			if self._world[self._agent_loc[0], self._agent_loc[1]] != 'g':
 				self._world[self._agent_loc[0], self._agent_loc[1]] = 'w' # was here
-
+                # TODO: Change the rewards here?
 		if self._world[self._agent_loc[0], self._agent_loc[1]] == 'o':
 			self._status = "alive"
 			self._reward = -0.01
 		elif self._world[self._agent_loc[0], self._agent_loc[1]] == 'x':
 			self._status = "trapped"
-			self._reward = -0.01
-			#self._done = True
+			self._reward = -0.10
+			self._done = True
 		elif self._world[self._agent_loc[0], self._agent_loc[1]] == 'w':
 			self._status = "visited"
 			self._reward = -0.01
