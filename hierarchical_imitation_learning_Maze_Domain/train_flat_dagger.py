@@ -31,7 +31,7 @@ from PIL import Image
 
 from mdp_obstacles import MazeMDP, value_iteration, best_policy
 
-SUMMARY_NAME = 'fda_200WarmStart_1pass_1000maps_randomDoor_run4'
+SUMMARY_NAME = 'fda_200WarmStart_1pass_1000roads_blah'
 # General parameters
 NUM_EPISODES = 1000
 TEST_EPISODES = 1000
@@ -281,9 +281,19 @@ class Agent(Visualizable):
 		    row_reward = []
 		    for y in range(17):
 		        if agent_host._world[x, y] == 'o':
-		            row_reward.append(-0.01)
+                            if y < 8:
+                                row_reward.append(-0.03)
+                            elif y in [8, 10, 12, 14]:
+                                row_reward.append(-0.02)
+                            else:
+		                row_reward.append(-0.01)
 		        elif agent_host._world[x, y] == 'a' or agent_host._world[x, y] == 'w':
-		            row_reward.append(-0.01)            
+                            if y < 8:
+                                row_reward.append(-0.04)
+                            elif y in [8, 10, 12, 14]:
+                                row_reward.append(-0.03)
+                            else:
+                                row_reward.append(-0.02)            
 		        elif agent_host._world[x, y] == 'x':
 		            row_reward.append(-1)
 		            terminal_description.append((x,y))
@@ -540,11 +550,11 @@ def main(macro_action, train_or_test, environment, validation):
 
 
 	agent_host = MazeNavigationEnvironment(MazeNavigationStateBuilder(gray = False),
-									rendering = False, randomized_door = True, stochastic_dynamic=False, map_id=999, setting = environment)
+									rendering = False, randomized_door = False, stochastic_dynamic=False, map_id=99, setting = environment)
 
 	agent = Agent(mode, environment, direction)
 
-	map_ids_to_use = range(1000,2000)
+	map_ids_to_use = range(100) #range(1000,2000)
 
 	if mode == 'test':
 		NUM_EPISODES = TEST_EPISODES
@@ -556,7 +566,7 @@ def main(macro_action, train_or_test, environment, validation):
 
 		#logger.debug("Spinning up a new environment and expert")
 
-		new_map_id = np.random.choice(range(1000))
+		new_map_id = np.random.choice(range(100)) #1000))
 		print 
 		print "--------------------------------------------------------------------"
 		logger.debug("Starting mission")

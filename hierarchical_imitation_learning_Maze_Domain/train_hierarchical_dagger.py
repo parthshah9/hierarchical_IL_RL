@@ -30,7 +30,7 @@ import six
 from PIL import Image
 from mdp_obstacles import MazeMDP, value_iteration, best_policy
 
-SUMMARY_NAME = 'hda_200WarmStart_1pass_1000roads_run4'
+SUMMARY_NAME = 'WarmStart_100roads_1000runs_HD_any_goal_penalize_oppo+lanelines_test_fix_meta_labels'
 # General parameters
 NUM_EPISODES = 1000
 
@@ -352,9 +352,19 @@ class Agent(Visualizable):
 		    row_reward = []
 		    for y in range(17):
 		        if agent_host._world[x, y] == 'o':
-		            row_reward.append(-0.01)
+                            if y < 8:
+                                row_reward.append(-0.03)
+                            elif y in [8, 10, 12, 14]:
+                                row_reward.append(-0.02)
+                            else:
+		                row_reward.append(-0.01)
 		        elif agent_host._world[x, y] == 'a' or agent_host._world[x, y] == 'w':
-		            row_reward.append(-0.01)            
+                            if y < 8:
+                                row_reward.append(-0.04)
+                            elif y in [8, 10, 12, 14]:
+                                row_reward.append(-0.03)
+                            else:
+                                row_reward.append(-0.02)            
 		        elif agent_host._world[x, y] == 'x':
 		            row_reward.append(-1)
 		            terminal_description.append((x,y))
@@ -467,8 +477,8 @@ class Agent(Visualizable):
 	#TODO: Update this and understand what is decision point??
 	def get_expert_feedback(self, agent_host, macro_action, expert_policy, decision_point):
 		agent_loc = agent_host.agent_loc
-		#print "agent loc:", agent_loc
-		#print "decision point:", decision_point
+		print "agent loc:", agent_loc
+		print "decision point:", decision_point
 		if agent_host._world[agent_loc[0], agent_loc[1]] == 'x':
 			possible_actions = [(0,-1), (0,1), (-1,0), (1,0)]
                         # possible_actions = [(-1, 0), (1, 0)]
@@ -487,12 +497,14 @@ class Agent(Visualizable):
 		else:
 			expert_a = expert_policy[agent_loc]
 			if macro_action == 0:
-				if agent_loc[1] % 2 == 1 and agent_loc[1] > 1 and agent_loc[1] > decision_point[1] and (agent_loc[0] / 4) == (decision_point[0] /4):
+                                if agent_loc[1] > decision_point[1] and agent_loc[0] == decision_point[0]:
+				#if agent_loc[1] % 2 == 1 and agent_loc[1] > 1 and agent_loc[1] > decision_point[1] and (agent_loc[0] / 4) == (decision_point[0] /4):
 					expert_t = 1
 				else:
-					expert_t =  0
+					expert_t = 0
 			elif macro_action == 1:
-				if agent_loc[1] % 2 == 1 and agent_loc[1] < 15 and agent_loc[1] < decision_point[1] and (agent_loc[0] / 4) == (decision_point[0] /4):
+                                if agent_loc[1] < decision_point[1] and agent_loc[0] == decision_point[0]:
+				#if agent_loc[1] % 2 == 1 and agent_loc[1] < 15 and agent_loc[1] < decision_point[1] and (agent_loc[0] / 4) == (decision_point[0] /4):
 					expert_t= 1
 				else:
 					expert_t= 0
@@ -630,12 +642,14 @@ class Agent(Visualizable):
 		agent_loc = last_location
 		macro_action = option_index
 		if macro_action == 0:
-			if agent_loc[1] % 2 == 1 and agent_loc[1] > 1 and agent_loc[1] > decision_point[1] and (agent_loc[0] / 4) == (decision_point[0] /4):
+                        if agent_loc[1] > decision_point[1] and agent_loc[0] == decision_point[0]: 
+			# if agent_loc[1] % 2 == 1 and agent_loc[1] > 1 and agent_loc[1] > decision_point[1] and (agent_loc[0] / 4) == (decision_point[0] /4):
 				expert_t = 1
 			else:
 				expert_t =  0
 		elif macro_action == 1:
-			if agent_loc[1] % 2 == 1 and agent_loc[1] < 15 and agent_loc[1] < decision_point[1] and (agent_loc[0] / 4) == (decision_point[0] /4):
+                        if agent_loc[1] < decision_point[1] and agent_loc[0] == decision_point[0]:
+                        # if agent_loc[1] % 2 == 1 and agent_loc[1] < 15 and agent_loc[1] < decision_point[1] and (agent_loc[0] / 4) == (decision_point[0] /4):
 				expert_t= 1
 			else:
 				expert_t= 0
@@ -830,7 +844,8 @@ class Agent(Visualizable):
 
 		## remains to process final reward and other stuff
 		#### expert replay the trajectory to decide where to actually incorporate feedback:
-		print "number of segments:", len(self.trajectory)
+                
+                print "number of segments:", len(self.trajectory)
 		print "actual number of meta labels to be collected:", len(meta_controller_call_history)
 		#time.sleep(0.5)
 		if self.warmstart:

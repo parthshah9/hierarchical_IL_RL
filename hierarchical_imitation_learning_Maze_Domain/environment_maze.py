@@ -210,7 +210,7 @@ class MazeNavigationEnvironment(object):
 		assert isinstance(actions, Sequence), "actions should be an iterable object"
 		assert len(actions) > 0, "len(actions) should be > 0"
 
-		self._rendering = rendering
+		self._rendering = False # rendering
 		
 		### Setting up the world
 		#self._world = None
@@ -632,14 +632,28 @@ class MazeNavigationEnvironment(object):
                 # TODO: Change the rewards here?
 		if self._world[self._agent_loc[0], self._agent_loc[1]] == 'o':
 			self._status = "alive"
-			self._reward = -0.01
+                        if self._agent_loc[1] < 8:
+                            self._reward = -0.03
+                        # elif self._agent_loc[0] == 0:
+                        #     self.status = "succeed"
+                        #     self._reward = 1
+                        #     self.done = True
+                        elif self._agent_loc[1] in [8, 10, 12, 14]:
+                            self._reward = -0.02
+                        else:
+			    self._reward = -0.01
 		elif self._world[self._agent_loc[0], self._agent_loc[1]] == 'x':
 			self._status = "trapped"
 			self._reward = -0.10
 			self._done = True
 		elif self._world[self._agent_loc[0], self._agent_loc[1]] == 'w':
 			self._status = "visited"
-			self._reward = -0.01
+                        if self._agent_loc[1] < 8:
+                            self._reward = -0.03
+                        elif self._agent_loc[1] in [8, 10, 12, 14]:
+                            self._reward = -0.02
+                        else:
+			    self._reward = -0.01
 		elif self._world[self._agent_loc[0], self._agent_loc[1]] == 'g':
 			self._status = "succeed"
 			self._reward = 1
